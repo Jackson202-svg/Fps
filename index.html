@@ -3,112 +3,204 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FPS Counter Demo</title>
+    <title>Project Dashboard - FPS & Lobby</title>
     <style>
-        /* CSS: Styles the floating widget */
-        body {
-            background-color: #121212;
-            color: white;
-            font-family: sans-serif;
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        :root {
+            --primary: #00ff88;
+            --bg: #0f0f0f;
+            --panel: rgba(25, 25, 25, 0.95);
         }
 
+        body {
+            background-color: var(--bg);
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        /* --- FPS WIDGET STYLE --- */
         #fps-widget {
             position: fixed;
             top: 20px;
             left: 20px;
-            width: 120px;
-            padding: 10px;
-            background: rgba(0, 0, 0, 0.8);
-            border: 1px solid #444;
-            border-radius: 8px;
-            color: #00ff88;
-            font-family: 'monospace';
-            text-align: center;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            pointer-events: none;
+            width: 150px;
+            background: var(--panel);
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
             z-index: 1000;
         }
 
-        #fps-text {
-            font-size: 18px;
+        .widget-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            color: #666;
+            margin-bottom: 8px;
+            text-transform: uppercase;
             font-weight: bold;
-            margin-bottom: 5px;
+        }
+
+        #fps-display {
+            font-size: 24px;
+            font-family: monospace;
+            font-weight: bold;
+            color: var(--primary);
         }
 
         canvas {
             width: 100%;
-            height: 30px;
-            display: block;
+            height: 40px;
+            margin-top: 10px;
+            border-top: 1px solid #222;
         }
+
+        /* --- LOBBY STYLE --- */
+        #lobby-panel {
+            width: 350px;
+            background: var(--panel);
+            border-radius: 16px;
+            border: 1px solid #333;
+            padding: 24px;
+            text-align: center;
+        }
+
+        .player-list {
+            margin: 20px 0;
+            text-align: left;
+        }
+
+        .player-item {
+            background: #1a1a1a;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 8px;
+            border-left: 3px solid var(--primary);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .btn {
+            background: var(--primary);
+            color: black;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .btn:hover { opacity: 0.8; transform: translateY(-2px); }
+        .btn-small { padding: 2px 8px; font-size: 10px; background: #333; color: #ccc; }
+        
+        .hidden { display: none; }
     </style>
 </head>
 <body>
 
-    <h1>Your Project Content Here</h1>
-
     <div id="fps-widget">
-        <div id="fps-text">FPS: 0</div>
-        <canvas id="fps-graph"></canvas>
+        <div class="widget-header">
+            System Performance
+            <button class="btn-small" onclick="toggleWidget()">Toggle</button>
+        </div>
+        <div id="fps-content">
+            <div id="fps-display">0 FPS</div>
+            <canvas id="fps-graph"></canvas>
+        </div>
+    </div>
+
+    <div id="lobby-panel">
+        <h2 style="margin-top:0">Local Session Lobby</h2>
+        <div class="player-list" id="player-list">
+            </div>
+        <button class="btn" onclick="addFakePlayer()">Add Demo Player</button>
+        <p style="font-size: 11px; color: #555; margin-top: 15px;">Simulated Lobby (No Backend Required)</p>
     </div>
 
     <script>
-        /* JS: The Logic */
-        (function() {
-            const text = document.getElementById('fps-text');
-            const canvas = document.getElementById('fps-graph');
-            const ctx = canvas.getContext('2d');
+        // --- 1. FPS & GRAPH LOGIC ---
+        const fpsText = document.getElementById('fps-display');
+        const canvas = document.getElementById('fps-graph');
+        const ctx = canvas.getContext('2d');
+        
+        let frames = 0;
+        let lastTime = performance.now();
+        let fpsHistory = new Array(50).fill(0);
+
+        function animate() {
+            frames++;
+            const now = performance.now();
             
-            let frameCount = 0;
-            let lastTime = performance.now();
-            let fpsHistory = new Array(60).fill(0); // Stores last 60 readings for the graph
-
-            function render() {
-                frameCount++;
-                const now = performance.now();
-                const delta = now - lastTime;
-
-                if (delta >= 1000) {
-                    const fps = Math.round((frameCount * 1000) / delta);
-                    text.innerText = `FPS: ${fps}`;
-                    
-                    // Update graph data
-                    fpsHistory.push(fps);
-                    fpsHistory.shift();
-                    
-                    // Visual feedback colors
-                    if (fps >= 55) text.style.color = "#00ff88";
-                    else if (fps >= 30) text.style.color = "#ffcc00";
-                    else text.style.color = "#ff4444";
-
-                    drawGraph();
-                    
-                    frameCount = 0;
-                    lastTime = now;
-                }
-                requestAnimationFrame(render);
-            }
-
-            function drawGraph() {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.strokeStyle = text.style.color;
-                ctx.lineWidth = 2;
-                ctx.beginPath();
+            if (now >= lastTime + 1000) {
+                const fps = Math.round((frames * 1000) / (now - lastTime));
+                fpsText.innerText = `${fps} FPS`;
                 
-                for (let i = 0; i < fpsHistory.length; i++) {
-                    const x = (i / (fpsHistory.length - 1)) * canvas.width;
-                    const y = canvas.height - (fpsHistory[i] / 120) * canvas.height;
-                    if (i === 0) ctx.moveTo(x, y);
-                    else ctx.lineTo(x, y);
-                }
-                ctx.stroke();
-            }
+                // Colors based on performance
+                if (fps >= 58) fpsText.style.color = "#00ff88";
+                else if (fps >= 30) fpsText.style.color = "#ffcc00";
+                else fpsText.style.color = "#ff4444";
 
-            requestAnimationFrame(render);
-        })();
+                updateGraph(fps);
+                frames = 0;
+                lastTime = now;
+            }
+            requestAnimationFrame(animate);
+        }
+
+        function updateGraph(val) {
+            fpsHistory.push(val);
+            fpsHistory.shift();
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = fpsText.style.color;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            
+            for (let i = 0; i < fpsHistory.length; i++) {
+                const x = (i / (fpsHistory.length - 1)) * canvas.width;
+                const y = canvas.height - (fpsHistory[i] / 100) * canvas.height;
+                i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+        }
+
+        function toggleWidget() {
+            document.getElementById('fps-content').classList.toggle('hidden');
+        }
+
+        // --- 2. LOCAL LOBBY LOGIC ---
+        const players = [
+            { name: "Dev_User", status: "Online" },
+            { name: "Guest_4421", status: "In-Game" }
+        ];
+
+        function renderLobby() {
+            const list = document.getElementById('player-list');
+            list.innerHTML = players.map(p => `
+                <div class="player-item">
+                    <span>${p.name}</span>
+                    <span style="color: #666; font-size: 12px;">${p.status}</span>
+                </div>
+            `).join('');
+        }
+
+        function addFakePlayer() {
+            const names = ["Shadow", "Matrix", "Neo", "Pixel_King", "Ghost"];
+            const randomName = names[Math.floor(Math.random() * names.length)] + "_" + Math.floor(Math.random() * 99);
+            players.push({ name: randomName, status: "Joined" });
+            if (players.length > 5) players.shift(); // Keep list small
+            renderLobby();
+        }
+
+        // Initialize
+        animate();
+        renderLobby();
     </script>
 </body>
 </html>
